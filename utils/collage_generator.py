@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import os
-import qrcode
 import shutil
 
 def create_collage_with_qr(photo_folder, frame_img_path):
@@ -74,59 +73,13 @@ def create_collage_with_qr(photo_folder, frame_img_path):
         canvas[:, :, c] = (alpha * frame[:, :, c] + (1 - alpha) * canvas[:, :, c]).astype(np.uint8)
 
     # 6. final.jpg 저장
-    final_path = os.path.join(photo_folder, "final.jpg")
-    cv2.imwrite(final_path, canvas)
-    os.makedirs(photo_folder, exist_ok=True)  # 폴더 없으면 생성
+    final_path = os.path.join(photo_folder, "final.jpg")   # ⭐ 이 줄 추가
+
+    os.makedirs(photo_folder, exist_ok=True)
+
     if not cv2.imwrite(final_path, canvas):
         raise IOError(f"❌ final.jpg 저장 실패: {final_path}")
+
     print(f"✅ final.jpg 저장 완료: {final_path}")
 
-    # 7. QR 코드 생성
-    session_folder_name = os.path.basename(photo_folder)
-    qr_url = f"https://ksea4cuts.kro.kr/{session_folder_name}/final.jpg"
-    qr_instance = qrcode.QRCode(
-    version=1,  # QR 코드 버전 (1: 가장 작음 ~ 40: 가장 큼)
-    error_correction=qrcode.constants.ERROR_CORRECT_H,
-    box_size=20,  # ✔️ 박스 사이즈 (기본이 10, 더 키우면 원본 크기 커짐)
-    border=4,  # 테두리 두께
-    )
-
-    qr_instance.add_data(qr_url)
-    qr_instance.make(fit=True)
-
-    qr_img = qr_instance.make_image(fill_color="black", back_color="white")
-    qr = np.array(qr_img.convert('RGB'))
-
-    # 이제 resize 하면 확실히 줄어듭니다
-    qr = cv2.resize(qr, (120, 120))
-    
-
-    qr_h, qr_w = qr.shape[:2]
-    margin = 30
-    y_offset = h_frame - qr_h - margin
-    x_right = w_frame - qr_w - margin
-    x_left = w_frame // 2 - qr_w - margin
-
-    if x_left >= 0:
-        canvas[y_offset:y_offset+qr_h, x_left:x_left+qr_w] = qr
-        canvas[y_offset:y_offset+qr_h, x_right:x_right+qr_w] = qr
-
-    # 8. final_with_qr 저장
-    final_with_qr = os.path.join(photo_folder, "final_with_qr.jpg")
-    if not cv2.imwrite(final_with_qr, canvas):
-        raise IOError(f"❌ final_with_qr.jpg 저장 실패: {final_with_qr}")
-    print(f"✅ final_with_qr.jpg 저장 완료: {final_with_qr}")
-
-    # 9. deploy 폴더 저장
-    deploy_folder = os.path.join("deploy", session_folder_name)
-    os.makedirs(deploy_folder, exist_ok=True)
-    try:
-        shutil.copy2(final_path, os.path.join(deploy_folder, "final.jpg"))
-        print(f"✅ deploy 폴더로 복사 완료: {deploy_folder}/final.jpg")
-    except Exception as e:
-        raise IOError(f"❌ deploy 폴더 복사 실패: {e}")
-
-    print(f"📎 QR에 삽입된 URL: {qr_url}")
-    print("🎉 콜라주 생성 및 배포 완료!")
-
-    return final_with_qr
+    return final_path   # ⭐ 이것도 추가 (app.py 때문에 중요)

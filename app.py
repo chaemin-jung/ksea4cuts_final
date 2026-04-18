@@ -2,7 +2,7 @@ from flask import Flask, render_template, jsonify, request, redirect, url_for, s
 import os
 import requests
 from datetime import datetime
-from utils.collage_generator import create_collage_with_qr
+from utils.collage_generator import create_collage
 from utils.lastest import get_latest_photo_folder
 from utils.printer import print_image
 from utils.prepare_image import prepare_image_for_print
@@ -86,7 +86,7 @@ def apply_frame():
     if not os.path.exists(frame_img_path):
         return "❌ 프레임이 존재하지 않습니다.", 400
 
-    final_image_path = create_collage_with_qr(photo_folder, frame_img_path)
+    final_image_path = create_collage(photo_folder, frame_img_path)
 
     if not final_image_path:
         return "❌ 이미지 생성 실패", 500
