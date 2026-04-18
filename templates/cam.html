@@ -307,10 +307,10 @@ function update(){
             redirecting=true;
             clearInterval(window.polling);
 
-            console.log("➡️ THANKS 이동");
+            console.log("➡️ RESULT 페이지로 이동");
 
             setTimeout(()=>{
-                window.location.href="/thanks";
+                window.location.href="/result?final_image=" + data.session_id;  // 완료 페이지로 이동
             },1500);
         }
 

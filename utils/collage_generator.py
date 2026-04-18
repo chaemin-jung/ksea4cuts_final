@@ -3,7 +3,7 @@ import numpy as np
 import os
 import shutil
 
-def create_collage_with_qr(photo_folder, frame_img_path):
+def create_collage(photo_folder, frame_img_path):
     print(f"📂 [시작] 콜라주 생성 시작! Photo folder: {photo_folder}, Frame: {frame_img_path}")
 
     # 1. 프레임 로드

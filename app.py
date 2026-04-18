@@ -1,148 +1,139 @@
-from flask import Flask, render_template, jsonify, request, redirect, url_for, session, Response, send_file
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session
 import os
 import requests
-from datetime import datetime
 from utils.collage_generator import create_collage
 from utils.lastest import get_latest_photo_folder
 from utils.printer import print_image
 from utils.prepare_image import prepare_image_for_print
-from utils.upload_all import upload_all_final_images
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "http://127.0.0.1:5050"}})
-app.secret_key = 'stephaniejiwonbaek_pleasethisbemyfinalonoe'
+CORS(app)
+app.secret_key = 'ksea4cuts_final'
 
+
+# ---------------- RESET ----------------
+@app.before_request
+def reset_if_new():
+    if "initialized" not in session:
+        session.clear()
+        session["initialized"] = True
+
+
+# ---------------- BASIC ----------------
 @app.route('/')
 def start():
     return render_template('start.html')
 
-@app.route('/guide')
-def guide():
-    return render_template('guide.html')
 
 @app.route('/cam')
 def cam():
-    # 세션 폴더 생성
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return render_template('cam.html')
 
 
-@app.route('/capture', methods=['POST'])
-def capture():
-    index = request.json.get('index', 1)
-    print(f"📸 {index}번째 사진 촬영 시작")
+# ---------------- FRAME / COPIES ----------------
+@app.route('/select_frame', methods=['POST'])
+def set_frame():
+    session['selected_frame'] = request.json.get('frame')
+    return '', 204
 
-    try:
-        response = requests.post('http://localhost:5052/capture', json={'index': index})
-        response.raise_for_status()
-
-        # 🧩 추가: 촬영 시마다 최신 폴더로 세션 업데이트
-        from utils.lastest import get_latest_photo_folder
-        session['photo_folder'] = get_latest_photo_folder()
-
-        return response.text, response.status_code
-    except Exception as e:
-        print(f"❌ 서버 오류 발생: {e}")
-        return str(e), 500
+# ---------------- CAPTURE ----------------
+@app.route('/start_capture')
+def start_capture():
+    session['shot'] = 0
+    return '', 204
 
 
-def get_latest_photo_folder():
-    try:
-        with open('/Users/stephanie/Desktop/kseafourcuts_final/static/last_folder.txt', 'r') as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        raise RuntimeError("❌ 최신 폴더 정보를 찾을 수 없습니다.")
-    
-@app.route("/shoot", methods=["POST"])
-def shoot():
-    return redirect(url_for("before_frame"))
+@app.route('/status')
+def status():
+    shot = session.get('shot', 0)
+    countdown = session.get('countdown', 10)  # 카운트다운을 10초로 설정
 
-@app.route('/before_frame')
-def before_frame():
-    return render_template('before_frame.html')
+    # 촬영 진행
+    if shot < 4:
+        if countdown > 0:
+            session['countdown'] = countdown - 1  # 카운트다운 감소
+        else:
+            if shot < 4:  # 촬영되지 않은 경우에만 진행
+                try:
+                    # 촬영 후 shot 값을 증가시킴
+                    requests.post('http://localhost:5052/capture', json={'index': shot+1})
+                    session['shot'] = shot + 1
+                    session['photo_folder'] = get_latest_photo_folder()
+                    session['countdown'] = 10  # 카운트다운 리셋
+                except Exception as e:
+                    print("❌ camera error:", e)
 
-@app.route("/select_frame")
-def select_frame():
-    frame_dir = os.path.join("static", "frames")
-    frame_list = os.listdir(frame_dir)
-    return render_template("select_frame.html", frames=frame_list)
+    # 촬영 완료된 상태 (shot >= 4)에서 카운트다운 및 촬영 진행을 멈춤
+    if shot >= 4:
+        session['countdown'] = 0  # 카운트다운 중지
 
-@app.route('/apply_frame', methods=['POST'])
+    return jsonify({
+        "countdown": countdown,
+        "shot": session.get('shot', 0),
+        "done": session.get('shot', 0) >= 4,
+        "session_id": get_latest_photo_folder().split('/')[-1]
+    })
+
+# ---------------- APPLY FRAME ----------------
+@app.route('/apply_frame')
 def apply_frame():
-    photo_folder = session.get("photo_folder") or get_latest_photo_folder()
-    print(f"✅ 사용될 photo_folder (수정 후): {photo_folder}")
-    print(f"가장 최신 폴더 (수정 후): {get_latest_photo_folder()}")
 
+    if "photo_folder" not in session:
+        return "❌ invalid session", 400
 
-    if not photo_folder or not os.path.exists(photo_folder):
-        return "❌ 사진 촬영 후 프레임을 적용하세요.", 400
+    photo_folder = session['photo_folder']
+    selected_frame = session.get("selected_frame")
 
-    selected_frame = request.form.get("frame")
+    if not os.path.exists(photo_folder):
+        return "❌ 사진 없음", 400
+
     if not selected_frame:
-        return "❌ 프레임을 선택하세요.", 400
+        return "❌ 프레임 선택 안됨", 400
 
-    frame_img_path = os.path.join("static", "frames", selected_frame)
-    if not os.path.exists(frame_img_path):
-        return "❌ 프레임이 존재하지 않습니다.", 400
+    frame_path = os.path.join("static", "frames", selected_frame)
 
-    final_image_path = create_collage(photo_folder, frame_img_path)
+    final_image = create_collage(photo_folder, frame_path)
 
-    if not final_image_path:
-        return "❌ 이미지 생성 실패", 500
+    # 프린트용 변환
+    flat_path = final_image.replace(".jpg", "_flat.jpg")
+    prepare_image_for_print(final_image, flat_path)
 
-    upload_all_final_images()
+    web_path = flat_path.replace("static/", "")
 
-    print_ready_full_path = final_image_path.replace('.jpg', '_flat.jpg')
-    prepare_image_for_print(final_image_path, print_ready_full_path)
+    return redirect(url_for('result', final_image=web_path))
 
-    print_ready_web_path = print_ready_full_path.replace(os.path.join('static/'), '')
-    return redirect(url_for('result', final_image=print_ready_web_path))
 
-@app.route('/download/<session>/<filename>')
-def download_file(session, filename):
-    file_path = os.path.join("static", "photos", session, filename)
-    if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
-    else:
-        return "파일을 찾을 수 없습니다.", 404
+# ---------------- RESULT ----------------
+@app.route('/result')
+def result():
+    final_image = request.args.get("final_image")
+    return render_template('result.html', final_image=final_image)
 
+
+# ---------------- PRINT ----------------
 @app.route('/print', methods=['POST'])
-def print_result_image():
-    print("🖨️ /print 라우트 호출됨!")
+def print_result():
+    if "photo_folder" not in session:
+        return jsonify(success=False, error="invalid session"), 400
+
     data = request.get_json()
     image_path = data.get("path")
 
-    if not image_path:
-        return jsonify(success=False, error="No image path provided."), 400
-
-    # if image_path.startswith('static/'):
-    #     image_path = image_path.replace('static/', '', 1)
-    
-    full_path = os.path.join(os.getcwd(), image_path)
-
-    print(f"🖨️ 프린트할 파일 경로: {full_path}")
+    full_path = os.path.join(os.getcwd(), "static", image_path)
 
     if not os.path.exists(full_path):
-        return jsonify(success=False, error=f"File not found: {full_path}"), 404
+        return jsonify(success=False, error="file not found"), 404
 
-    success = print_image(full_path)
+    copies = session.get("copies", 2)
+    real_prints = copies // 2   # 🔥 핵심 로직
+
+    print(f"🖨️ printing {real_prints} copies")
+
+    success = print_image(full_path, real_prints)
+
     return jsonify(success=success)
 
-@app.route('/result')
-def result():
-    return render_template('result.html')
-
-@app.route('/lastest')
-def lastest_image():
-    path = get_latest_photo_folder()
-    return jsonify({"path": path})
-
-@app.route('/<session_folder>/final.jpg')
-def log_and_serve(session_folder):
-    with open('access_log.txt', 'a') as log_file:
-        log_file.write(f"{datetime.now()}: {session_folder} 접속\n")
-    return send_file(f'deploy/{session_folder}/final.jpg')
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5050)
+    app.run(host='0.0.0.0', port=5050, debug=False)

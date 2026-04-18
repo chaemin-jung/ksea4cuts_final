@@ -2,58 +2,54 @@
 <html>
 
 <head>
+    <style>
+        body {
+            margin: 0;
+            background: black;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Poppins;
+        }
 
-<style>
+        h1 {
+            font-size: 70px;
+        }
 
-body{
-
-margin:0;
-background:black;
-color:white;
-
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-
-height:100vh;
-
-font-family:Poppins;
-
-}
-
-h1{
-
-font-size:70px;
-
-}
-
-p{
-
-font-size:28px;
-color:#aaa;
-
-}
-
-</style>
-
+        p {
+            font-size: 28px;
+            color: #aaa;
+        }
+    </style>
 </head>
 
 <body>
 
-<h1>Thank You!</h1>
+    <h1>Thank You!</h1>
+    <p>Printing your photos...</p>
 
-<p>Printing your photos...</p>
+    <script>
+        // Image path passed from Flask to the template
+        const imagePath = "{{ final_image }}";
 
-<script>
+        // 🔥 프린트 실행
+        fetch("/print", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ path: imagePath })
+        });
 
-fetch("/reset")
+        // 프린트 완료 후 리셋 + 자동 홈 이동
+        fetch("/reset");
 
-setTimeout(()=>{
-location.href="/"
-},10000)
-
-</script>
+        // 10초 대기 후 start.html로 리디렉션
+        setTimeout(() => {
+            location.href = "/";  // start.html로 자동 리디렉션
+        }, 10000);  // 10초 후
+    </script>
 
 </body>
 
