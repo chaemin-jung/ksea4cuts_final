@@ -1,44 +1,324 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-  <title>Camera</title>
-  <meta charset="UTF-8">
-  <link rel="stylesheet" href="{{ url_for('static', filename='cam.css') }}">
-  <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+<meta charset="UTF-8">
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+
+body{
+margin:0;
+background:#ECECEC;
+font-family:Poppins;
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+height:100vh;
+overflow:auto;
+}
+
+/* ---------- FRAME SELECT ---------- */
+
+h1{
+font-size:42px;
+margin-bottom:40px;
+}
+
+.frames{
+display:grid;
+grid-template-columns: repeat(5, 1fr);
+gap:24px;
+padding:0 20px;
+justify-items:center;
+}
+
+.frame{
+width:225px;
+max-width:100%;
+cursor:pointer;
+transition:0.2s;
+}
+
+.frame:hover{
+transform:scale(1.05);
+}
+
+/* ---------- COPY SELECT ---------- */
+
+#copy-select{
+display:none;
+margin-top:40px;
+text-align:center;
+}
+
+button{
+font-size:20px;
+padding:12px 24px;
+margin:10px;
+border:none;
+border-radius:10px;
+cursor:pointer;
+background:black;
+color:white;
+}
+
+/* ---------- CAPTURE UI ---------- */
+
+#capture-ui{
+display:none;
+width:100%;
+height:100vh;
+}
+
+.header{
+display:flex;
+justify-content:space-between;
+padding:30px 60px;
+}
+
+.title{
+font-size:48px;
+font-weight:800;
+}
+
+.subtitle{
+font-size:28px;
+color:#777;
+}
+
+.main{
+display:flex;
+justify-content:center;
+align-items:center;
+gap:40px;
+height:calc(100vh - 120px);
+}
+
+.camera{
+background:#ccc;
+padding:20px;
+border-radius:20px;
+position:relative;
+
+width:60vw;
+height:65vh;
+overflow:hidden;
+
+display:flex;
+align-items:center;
+justify-content:center;
+}
+
+#preview{
+width:100%;
+height:100%;
+object-fit:cover;
+border-radius:10px;
+}
+
+.count{
+position:absolute;
+bottom:30px;
+left:50%;
+transform:translateX(-50%);
+font-size:9vh;
+font-weight:800;
+color:white;
+text-shadow:3px 3px 0 #000;
+}
+
+.progress{
+text-align:center;
+font-size:64px;
+margin-top:20px;
+}
+
+.side{
+display:flex;
+flex-direction:column;
+gap:15px;
+}
+
+.slot{
+width:120px;
+height:90px;
+border:3px solid black;
+background:white;
+}
+
+.slot img{
+width:100%;
+height:100%;
+object-fit:cover;
+}
+
+</style>
 
 </head>
+
 <body>
-  <div class="info" id="info" style="display: none;">
-    <h3>Please face the Sony camera | 소니 카메라를 바라봐 주세요.</h3>
-    <div id="timer">10</div>
-    <div id="count">0/4</div>
-  </div>
 
-  <div class="cambox">
-    <!-- 📸 카메라 화면 -->
-    <div class="camera">
-      <!-- 🔄 Flask 실시간 프리뷰 -->
-      <img id="live-view">
+<h1 id="title">Select Frame</h1>
 
-    </div>
-  </div>
+<div class="frames" id="frame-section">
+<img src="/assets/frame1.png" class="frame" onclick="selectFrame('frame1.png')">
+<img src="/assets/frame2.png" class="frame" onclick="selectFrame('frame2.png')">
+<img src="/assets/frame3.png" class="frame" onclick="selectFrame('frame3.png')">
+<img src="/assets/frame4.png" class="frame" onclick="selectFrame('frame4.png')">
+<img src="/assets/frame5.png" class="frame" onclick="selectFrame('frame5.png')">
+</div>
 
-  <div id="shooting-overlay" class="shooting" style="display: none;">
-    <div class="overlay-text">📸 사진 촬영 중입니다...</div>
-  </div>
-  
+<div id="copy-select">
+<h2>Select Copies</h2>
 
-  <!-- 🪟 팝업 -->
-  <div class="popup" id="popup">
-    <p>Click start to take photos.<br>촬영을 위해 Start 버튼을 눌러주세요.</p>
-    <button id="start">Start</button>
-  </div>
+<button onclick="selectCopies(2)">2 Copies</button>
+<button onclick="selectCopies(4)">4 Copies</button>
+<button onclick="selectCopies(6)">6 Copies</button>
+<button onclick="selectCopies(8)">8 Copies</button>
+</div>
 
-  <!-- 📤 촬영 완료 시 자동 제출 -->
-  <form action="{{ url_for('shoot') }}" method="post" id="shoot-form" style="display: none;"></form>
+<div id="capture-ui">
 
-  <audio id="shutter" src="{{ url_for('static', filename='shutter.mp3') }}"></audio>
+<div class="header">
+<div class="title">KSEA4CUTS</div>
+<div class="subtitle">Taking Photos</div>
+</div>
 
-  <script src="{{ url_for('static', filename='cam.js') }}"></script>
+<div class="main">
+
+<div>
+
+<div class="camera">
+<img id="preview" src="/preview">
+<div id="count" class="count"></div>
+</div>
+
+<div id="progress" class="progress">READY</div>
+
+</div>
+
+<div class="side">
+<div class="slot" id="s1"></div>
+<div class="slot" id="s2"></div>
+<div class="slot" id="s3"></div>
+<div class="slot" id="s4"></div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+let lastShot = 0;
+let captureStarting = false;
+let redirecting = false;
+
+/* ---------- FRAME ---------- */
+
+async function selectFrame(name){
+    await fetch("/select_frame",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({frame:name})
+    });
+
+    document.getElementById("copy-select").style.display="block";
+}
+
+/* ---------- COPIES ---------- */
+
+function selectCopies(n){
+
+    if(captureStarting) return;
+    captureStarting = true;
+
+    document.querySelectorAll("#copy-select button").forEach(btn=>{
+        btn.disabled=true;
+        btn.style.opacity="0.4";
+    });
+
+    fetch("/set_copies",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body:JSON.stringify({ copies:n })
+    });
+
+    startCapture();
+}
+
+/* ---------- START ---------- */
+
+function startCapture(){
+
+    lastShot = 0;
+    redirecting = false;
+
+    document.getElementById("count").innerText="";
+    document.getElementById("progress").innerText="READY";
+
+    ["s1","s2","s3","s4"].forEach(id=>{
+        document.getElementById(id).innerHTML="";
+    });
+
+    document.getElementById("frame-section").style.display="none";
+    document.getElementById("copy-select").style.display="none";
+    document.getElementById("title").style.display="none";
+    document.getElementById("capture-ui").style.display="block";
+
+    setTimeout(()=>{
+        document.getElementById("progress").innerText="1/4";
+        fetch("/start_capture");
+    },3000);
+
+    window.polling = setInterval(update,200);
+}
+
+/* ---------- UPDATE ---------- */
+
+function update(){
+
+    fetch("/status")
+    .then(r=>r.json())
+    .then(data=>{
+
+        document.getElementById("count").innerText =
+            data.countdown>0 ? data.countdown : "";
+
+        if(data.shot>lastShot){
+
+            let n=data.shot;
+
+            document.getElementById("s"+n).innerHTML =
+            `<img src="/outputs/shot_${data.session_id}_${n-1}.jpg?${Date.now()}">`;
+
+            document.getElementById("progress").innerText =
+                n<4 ? (n+1)+"/4" : "4/4";
+
+            lastShot=n;
+        }
+
+        /* 🔥 핵심: 타이밍 버그 완전 제거 */
+        if((data.done || data.shot>=4) && !redirecting){
+
+            redirecting=true;
+            clearInterval(window.polling);
+
+            console.log("➡️ THANKS 이동");
+
+            setTimeout(()=>{
+                window.location.href="/thanks";
+            },1500);
+        }
+
+    })
+    .catch(()=>{});
+}
+
+</script>
+
 </body>
 </html>

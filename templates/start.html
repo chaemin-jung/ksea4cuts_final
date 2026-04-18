@@ -1,28 +1,61 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <title>Start Page</title>
-        <link rel="stylesheet" href="{{ url_for('static', filename='start.css') }}">
-        <link rel="stylesheet" href="{{ url_for('static', filename='anim.css') }}">
-        <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
 
-    </head>
-    <body>
-        <div class="container">
-            <div id="wrapper">
-                <div class="anim">
-                    <img class="photo" src="{{ url_for('static', filename='images/ucdksealogo_nobackground.jpeg') }}">
-                </div>
-                <div class="anim1">
-                    <button onclick="start();" class="startbutton click" type="button">START</button>
-                </div>
-            </div>
-        </div> 
-        <script>
-            function start() {
-                window.location.href = "{{ url_for('guide') }}";
-            }
-        </script>
-        <script src="{{ url_for('static', filename='anim.js') }}"></script>
-    </body>
+<head>
+<meta charset="UTF-8">
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+
+<style>
+body{
+margin:0;
+background:#ECECEC;
+font-family:Poppins;
+
+display:flex;
+flex-direction:column;   /* ⭐ 핵심 (세로 정렬) */
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+
+/* 제목 */
+.title{
+font-size:64px;
+font-weight:800;
+margin-bottom:40px;   /* ⭐ 버튼이랑 간격 */
+}
+
+/* 버튼 */
+button{
+font-size:28px;
+padding:20px 60px;
+border:none;
+border-radius:12px;
+background:black;
+color:white;
+cursor:pointer;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="title">KSEA4CUTS</div>
+
+<button onclick="goFrame()">Start Photo Session</button>
+
+<script>
+function goFrame(){
+  const btn = document.querySelector("button")
+  btn.disabled = true
+  
+  fetch("/stop_preview").catch(()=>{})
+  window.location.href="/frame"
+}
+</script>
+
+</body>
+
 </html>
